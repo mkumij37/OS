@@ -1,0 +1,1 @@
+cmd_/home/marinaj/Documents/OS/HW2/hello.ko := ld -r -m elf_x86_64 -T /usr/src/linux-headers-3.13.0-141-generic/scripts/module-common.lds --build-id  -o /home/marinaj/Documents/OS/HW2/hello.ko /home/marinaj/Documents/OS/HW2/hello.o /home/marinaj/Documents/OS/HW2/hello.mod.o
