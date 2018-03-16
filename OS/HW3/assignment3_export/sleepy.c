@@ -27,6 +27,7 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/mutex.h>
+#include <linux/sched.h>
 
 #include <asm/uaccess.h>
 
@@ -92,10 +93,10 @@ sleepy_read(struct file *filp, char __user *buf, size_t count,
 	
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
-	
-  /* YOUR CODE HERE */
-
-  /* END YOUR CODE */
+  dev->flag = 1;
+  wake_up_interruptible(&dev->queue);
+  printk("sleepy, time to wake up!\n"); 
+       
 	
   mutex_unlock(&dev->sleepy_mutex);
   return retval;
@@ -105,17 +106,31 @@ ssize_t
 sleepy_write(struct file *filp, const char __user *buf, size_t count, 
 	     loff_t *f_pos)
 {
+  int timer;
+  unsigned long leftover;
+  struct timespec temp;
   struct sleepy_dev *dev = (struct sleepy_dev *)filp->private_data;
   ssize_t retval = 0;
 	
   if (mutex_lock_killable(&dev->sleepy_mutex))
     return -EINTR;
 	
-  /* YOUR CODE HERE */
+  printk(KERN_DEBUG "process %i (%s) going to sleepy\n", 
+  current->pid, current->comm);
+  //printk("In sleepy write.\n");
 
-  /* END YOUR CODE */
-	
+  timer = *(int*)buf;
+  //conversion of seconds to jiffy
+  temp.tv_sec = (time_t)timer;
+  temp.tv_nsec = temp.tv_sec * 1000000000;
+
+  //creates and puts it into the queue
   mutex_unlock(&dev->sleepy_mutex);
+  leftover = wait_event_interruptible_timeout((dev->queue), dev->flag != 0, timespec_to_jiffies(&temp););
+  //convert from jiffy to secods
+  jiffies_to_timespec(leftover, &temp);
+  printk("sleepy, leftover time: %d\n", temp.tv_sec);
+	
   return retval;
 }
 
@@ -175,6 +190,8 @@ sleepy_construct_device(struct sleepy_dev *dev, int minor,
     cdev_del(&dev->cdev);
     return err;
   }
+  init_waitqueue_head(&(dev->queue));
+  dev->flag = 0;
   return 0;
 }
 
